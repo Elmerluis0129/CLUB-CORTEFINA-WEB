@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Cortefina - Habbo.es Nightclub</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Press Start 2P', monospace;
+            background: linear-gradient(135deg, #1a0033 0%, #000000 50%, #0a0a2e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 80%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(138, 43, 226, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(255, 0, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            animation: discoLights 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes discoLights {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.7; }
+        }
+
+        .container {
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 100px 0;
+            position: relative;
+        }
+
+        .banner {
+            font-size: 4rem;
+            color: #ffd700;
+            text-shadow: 0 0 20px #ffd700, 0 0 40px #8a2be2, 0 0 60px #8a2be2;
+            position: relative;
+            display: inline-block;
+            margin-bottom: 50px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #ffd700, 0 0 40px #8a2be2, 0 0 60px #8a2be2; }
+            to { text-shadow: 0 0 30px #ffd700, 0 0 50px #8a2be2, 0 0 80px #8a2be2; }
+        }
+
+        .banner::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="2" fill="%23ffd700"/><circle cx="30" cy="30" r="1" fill="%238a2be2"/><circle cx="70" cy="70" r="1" fill="%23ff00ff"/></svg>');
+            background-size: 20px 20px;
+            opacity: 0.6;
+            animation: sparkle 3s linear infinite;
+        }
+
+        @keyframes sparkle {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0); }
+        }
+
+        .cta-button {
+            background: linear-gradient(45deg, #ffd700, #8a2be2);
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.2rem;
+            color: #000;
+            cursor: pointer;
+            border-radius: 10px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .cta-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+        }
+
+        .secondary-button {
+            background: transparent;
+            border: 2px solid #8a2be2;
+            padding: 18px 38px;
+            font-size: 1rem;
+            color: #8a2be2;
+            cursor: pointer;
+            border-radius: 10px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+
+        .secondary-button:hover {
+            background: #8a2be2;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+        }
+
+        /* Events Section */
+        .events {
+            padding: 100px 0;
+            text-align: center;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+            color: #ffd700;
+            text-shadow: 0 0 10px #ffd700;
+        }
+
+        .event-cards {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .event-card {
+            background: linear-gradient(135deg, #2a0040, #1a1a2e);
+            border-radius: 15px;
+            padding: 30px;
+            width: 300px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+
+        .event-card:hover::before {
+            transform: translateX(100%);
+        }
+
+        .event-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+        }
+
+        .event-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #8a2be2;
+        }
+
+        /* VIP Section */
+        .vip {
+            padding: 100px 0;
+            text-align: center;
+            background: linear-gradient(135deg, #330066, #000033);
+        }
+
+        .vip-badge {
+            font-size: 4rem;
+            color: #ffd700;
+            margin-bottom: 30px;
+            animation: shimmer 2s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(1.5); }
+            100% { filter: brightness(1); }
+        }
+
+        /* Radio Section */
+        .radio {
+            padding: 100px 0;
+            text-align: center;
+        }
+
+        .radio-player {
+            background: linear-gradient(135deg, #1a0033, #0a0a2e);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            margin: 0 auto;
+            box-shadow: 0 0 50px rgba(138, 43, 226, 0.3);
+        }
+
+        .equalizer {
+            display: flex;
+            justify-content: center;
+            align-items: end;
+            height: 100px;
+            margin-bottom: 30px;
+        }
+
+        .bar {
+            width: 10px;
+            background: #8a2be2;
+            margin: 0 2px;
+            animation: equalize 1s ease-in-out infinite alternate;
+        }
+
+        .bar:nth-child(1) { animation-delay: 0s; height: 20px; }
+        .bar:nth-child(2) { animation-delay: 0.1s; height: 40px; }
+        .bar:nth-child(3) { animation-delay: 0.2s; height: 60px; }
+        .bar:nth-child(4) { animation-delay: 0.3s; height: 80px; }
+        .bar:nth-child(5) { animation-delay: 0.4s; height: 100px; }
+        .bar:nth-child(6) { animation-delay: 0.5s; height: 80px; }
+        .bar:nth-child(7) { animation-delay: 0.6s; height: 60px; }
+        .bar:nth-child(8) { animation-delay: 0.7s; height: 40px; }
+        .bar:nth-child(9) { animation-delay: 0.8s; height: 20px; }
+
+        @keyframes equalize {
+            from { height: 10px; }
+            to { height: 100px; }
+        }
+
+        /* Gallery Section */
+        .gallery {
+            padding: 100px 0;
+            text-align: center;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .gallery-item {
+            background: linear-gradient(135deg, #2a0040, #1a1a2e);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 50px 0;
+            text-align: center;
+            border-top: 2px solid #8a2be2;
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, #ffd700 0px, #ffd700 10px, #8a2be2 10px, #8a2be2 20px);
+        }
+
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        .social-icon {
+            font-size: 2rem;
+            color: #8a2be2;
+            transition: all 0.3s ease;
+        }
+
+        .social-icon:hover {
+            color: #ffd700;
+            transform: scale(1.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .banner {
+                font-size: 2rem;
+            }
+
+            .event-cards {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .cta-button, .secondary-button {
+                display: block;
+                margin: 10px auto;
+                width: 200px;
+            }
+        }
+
+        /* Pixel decorations */
+        .pixel-decoration {
+            position: absolute;
+            font-size: 1rem;
+            color: #8a2be2;
+            opacity: 0.3;
+        }
+
+        .pixel-decoration.top-left {
+            top: 20px;
+            left: 20px;
+        }
+
+        .pixel-decoration.top-right {
+            top: 20px;
+            right: 20px;
+        }
+
+        .pixel-decoration.bottom-left {
+            bottom: 20px;
+            left: 20px;
+        }
+
+        .pixel-decoration.bottom-right {
+            bottom: 20px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="pixel-decoration top-left">■</div>
+    <div class="pixel-decoration top-right">■</div>
+    <div class="pixel-decoration bottom-left">■</div>
+    <div class="pixel-decoration bottom-right">■</div>
+
+    <div class="container">
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1 class="banner">Club Cortefina</h1>
+            <button class="cta-button" onclick="confettiEffect()">Enter the Club</button>
+            <button class="secondary-button">Events</button>
+        </section>
+
+        <!-- Events Section -->
+        <section class="events">
+            <h2 class="section-title">Events</h2>
+            <div class="event-cards">
+                <div class="event-card">
+                    <div class="event-icon">🎧</div>
+                    <h3>DJ Night</h3>
+                    <p>Every Friday</p>
+                </div>
+                <div class="event-card">
+                    <div class="event-icon">🎤</div>
+                    <h3>Karaoke</h3>
+                    <p>Saturday Nights</p>
+                </div>
+                <div class="event-card">
+                    <div class="event-icon">💃</div>
+                    <h3>Dance Party</h3>
+                    <p>Weekly Specials</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIP Section -->
+        <section class="vip">
+            <h2 class="section-title">VIP / HC Area</h2>
+            <div class="vip-badge">👑</div>
+            <p>Exclusive access to premium areas</p>
+            <button class="cta-button">Become VIP</button>
+        </section>
+
+        <!-- Radio Section -->
+        <section class="radio">
+            <h2 class="section-title">Club Radio</h2>
+            <div class="radio-player">
+                <div class="equalizer">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                <button class="cta-button">Listen Live</button>
+            </div>
+        </section>
+
+        <!-- Gallery Section -->
+        <section class="gallery">
+            <h2 class="section-title">Gallery</h2>
+            <div class="gallery-grid">
+                <div class="gallery-item">
+                    <img src="https://via.placeholder.com/300x200/8a2be2/ffffff?text=Dance+Floor" alt="Dance Floor">
+                </div>
+                <div class="gallery-item">
+                    <img src="https://via.placeholder.com/300x200/ffd700/000000?text=VIP+Area" alt="VIP Area">
+                </div>
+                <div class="gallery-item">
+                    <img src="https://via.placeholder.com/300x200/ff00ff/ffffff?text=Bar" alt="Bar">
+                </div>
+                <div class="gallery-item">
+                    <img src="https://via.placeholder.com/300x200/00ffff/000000?text=Events" alt="Events">
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="social-icons">
+                <a href="#" class="social-icon">📘</a>
+                <a href="#" class="social-icon">🐦</a>
+                <a href="#" class="social-icon">🏨</a>
+            </div>
+            <p>&copy; 2023 Club Cortefina - Habbo.es</p>
+        </footer>
+    </div>
+
+    <script>
+        function confettiEffect() {
+            // Simple confetti effect
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.background = ['#ffd700', '#8a2be2', '#ff00ff'][Math.floor(Math.random() * 3)];
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.animation = 'fall 3s linear forwards';
+                document.body.appendChild(confetti);
+
+                setTimeout(() => confetti.remove(), 3000);
+            }
+        }
+
+        // Add fall animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fall {
+                to {
+                    transform: translateY(100vh) rotate(360deg);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
