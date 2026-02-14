@@ -26,9 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if (empty($errors)) {
         $conn = getDBConnection();
+        $conn->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended TINYINT(1) DEFAULT 0");
 
         // Find user
-        $stmt = $conn->prepare("SELECT id, password FROM users WHERE username = ?");
+        $stmt = $conn->prepare("SELECT id, password, is_suspended FROM users WHERE username = ?");
         $stmt->bind_param("s", $username);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -36,7 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($result->num_rows == 1) {
             $user = $result->fetch_assoc();
 
-            if (password_verify($password, $user['password'])) {
+            if ((int) $user['is_suspended'] === 1) {
+                $errors[] = "Tu cuenta esta suspendida.";
+            } elseif (password_verify($password, $user['password'])) {
                 // Set session
                 $_SESSION['user_id'] = $user['id'];
 

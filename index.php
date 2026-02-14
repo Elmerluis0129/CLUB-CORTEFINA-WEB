@@ -720,7 +720,6 @@ if (isset($_SESSION['user_id'])) {
                 <a href="#events" class="navbar-link">Eventos</a>
                 <a href="#gallery" class="navbar-link">Galería</a>
                 <?php if (isset($_SESSION['user_id'])): ?>
-                    <a href="admin.php" class="navbar-link admin">Panel Admin</a>
                     <div class="dropdown">
                         <button class="dropdown-btn">Perfil ▼</button>
                         <div class="dropdown-content">
@@ -728,8 +727,12 @@ if (isset($_SESSION['user_id'])) {
                             <a href="logout.php">Cerrar Sesión</a>
                         </div>
                     </div>
+                    
                     <?php if ($user_rank >= 5): ?>
                     <a href="time.php" class="navbar-link admin">Time</a>
+                    <?php endif; ?>
+                    <?php if ($user_rank >= 5): ?>
+                    <a href="admin.php" class="navbar-link admin">Panel Admin</a>
                     <?php endif; ?>
                 <?php else: ?>
                     <a href="login.php" class="navbar-link login">Iniciar Sesión</a>

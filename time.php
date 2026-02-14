@@ -46,14 +46,60 @@ $user_rank_name = isset($rank_names[$user_rank]) ? $rank_names[$user_rank] : 'Us
 
 // Load users with ranks 5, 6, or 7
 $conn = getDBConnection();
+$conn->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS encargado_admin_id INT(11) DEFAULT NULL");
+$conn->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS mission_verified TINYINT(1) DEFAULT 0");
+$conn->query("
+    CREATE TABLE IF NOT EXISTS time_activation_requests (
+        id INT(11) NOT NULL AUTO_INCREMENT,
+        user_id INT(11) NOT NULL,
+        admin_id INT(11) NOT NULL,
+        status ENUM('pendiente','aceptada','denegada','cancelada') NOT NULL DEFAULT 'pendiente',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        responded_at DATETIME DEFAULT NULL,
+        PRIMARY KEY (id),
+        KEY idx_time_activation_requests_user_status (user_id, status),
+        KEY idx_time_activation_requests_admin_status (admin_id, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+");
+$conn->query("
+    CREATE TABLE IF NOT EXISTS active_time_sessions (
+        id INT(11) NOT NULL AUTO_INCREMENT,
+        user_id INT(11) NOT NULL,
+        admin_id INT(11) NOT NULL,
+        request_id INT(11) DEFAULT NULL,
+        started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        ended_at DATETIME DEFAULT NULL,
+        PRIMARY KEY (id),
+        KEY idx_active_time_sessions_user_active (user_id, ended_at),
+        KEY idx_active_time_sessions_admin_active (admin_id, ended_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+");
+
 $users_query = $conn->prepare("SELECT id, username, habbo_username, rank, verified, created_at, avatar FROM users WHERE rank IN (5, 6, 7) ORDER BY rank DESC, created_at DESC");
 $users_query->execute();
 $all_users = $users_query->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Load all users for the time system
-$all_users_query = $conn->prepare("SELECT id, username, habbo_username, verified, rank, total_time FROM users ORDER BY id DESC");
+$all_users_query = $conn->prepare("SELECT id, username, habbo_username, verified, rank, total_time, encargado_admin_id FROM users ORDER BY id DESC");
 $all_users_query->execute();
 $all_registered_users = $all_users_query->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$active_sessions_by_user = [];
+$active_sessions_query = $conn->query("SELECT user_id, admin_id, started_at FROM active_time_sessions WHERE ended_at IS NULL");
+if ($active_sessions_query) {
+    while ($active_row = $active_sessions_query->fetch_assoc()) {
+        $active_sessions_by_user[(int) $active_row['user_id']] = $active_row;
+    }
+}
+
+$pending_activation_by_user = [];
+$pending_activation_query = $conn->query("SELECT user_id, COUNT(*) AS total_pending FROM time_activation_requests WHERE status = 'pendiente' GROUP BY user_id");
+if ($pending_activation_query) {
+    while ($pending_row = $pending_activation_query->fetch_assoc()) {
+        $pending_activation_by_user[(int) $pending_row['user_id']] = (int) $pending_row['total_pending'];
+    }
+}
+
 $conn->close();
 ?>
 <!DOCTYPE html>
@@ -98,10 +144,60 @@ $conn->close();
             100% { opacity: 0.7; }
         }
 
+        .top-nav {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            max-width: 1200px;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid rgba(138, 43, 226, 0.65);
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            z-index: 6;
+            margin: 0 auto;
+        }
+
+        .brand {
+            color: #ffd700;
+            font-size: 0.7rem;
+            text-shadow: 0 0 10px #ffd700;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            border: 1px solid #8a2be2;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.55rem;
+            background: rgba(138, 43, 226, 0.18);
+            transition: all 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            background: #8a2be2;
+            transform: translateY(-1px);
+        }
+
         .container {
             max-width: 1200px;
+            width: calc(100% - 40px);
             margin: 0 auto;
-            padding: 120px 20px 50px 20px;
+            padding: 120px 0 50px 0;
         }
 
         .header {
@@ -224,18 +320,23 @@ $conn->close();
 
         .time-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 50px;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 18px;
+            margin-bottom: 20px;
+            align-items: stretch;
         }
 
         .time-section {
             background: linear-gradient(135deg, #2a0040, #1a1a2e);
             border-radius: 15px;
-            padding: 30px;
+            padding: 22px;
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
             position: relative;
             overflow: hidden;
+        }
+
+        .time-grid > .time-section:nth-child(3) {
+            grid-column: 1 / -1;
         }
 
         .time-section::before {
@@ -271,13 +372,14 @@ $conn->close();
         .user-item {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 15px;
+            padding: 20px;
+            margin-bottom: 10px;
             border: 1px solid rgba(138, 43, 226, 0.4);
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
-            align-items: start;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
             gap: 15px;
+            min-height: 120px;
         }
 
         .time-column {
@@ -297,7 +399,7 @@ $conn->close();
         }
 
         .owner-item {
-            justify-content: center;
+            justify-content: flex-start;
         }
 
         .user-info {
@@ -305,6 +407,21 @@ $conn->close();
             gap: 15px;
             flex-wrap: wrap;
             flex: 1;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .time-grid > .time-section:nth-child(3) .user-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .time-grid > .time-section:nth-child(3) .user-item {
+            margin-bottom: 0;
         }
 
         .user-field {
@@ -430,6 +547,14 @@ $conn->close();
             border-bottom: 1px solid rgba(138, 43, 226, 0.2);
         }
 
+        .user-table th.rank-user-col,
+        .user-table td.rank-user-col-cell {
+            width: 48%;
+            min-width: 520px;
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+
         .user-row:hover {
             background: rgba(138, 43, 226, 0.1);
         }
@@ -437,18 +562,35 @@ $conn->close();
         .user-cell {
             display: flex;
             align-items: center;
-            position: relative;
+            gap: 16px;
+            position: static;
+            width: 100%;
         }
 
         .user-cell img {
-            position: absolute;
-            left: 20px;
-            top: 50%;
-            transform: translateY(-50%);
+            position: static;
+            left: auto;
+            top: auto;
+            transform: none;
+            flex: 0 0 auto;
         }
 
         .user-cell div {
-            margin-left: 80px;
+            margin-left: 0;
+            flex: 1;
+        }
+
+        .user-name-line {
+            color: #ffd700;
+            font-size: 0.8rem;
+            line-height: 1.35;
+        }
+
+        .user-rank-line {
+            color: #8a2be2;
+            font-size: 0.58rem;
+            margin-top: 6px;
+            line-height: 1.3;
         }
 
         .time-cell {
@@ -457,20 +599,54 @@ $conn->close();
 
         .action-cell {
             text-align: center;
+            white-space: nowrap;
         }
 
-        .action-cell button {
-            margin: 0 5px;
+        .action-cell .activate-btn,
+        .action-cell .pause-btn {
+            border: 1px solid #8a2be2;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #ffd700, #8a2be2);
+            color: #000;
+            padding: 10px 14px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.55rem;
+            cursor: pointer;
+            margin: 4px 5px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .action-cell .activate-btn:hover,
+        .action-cell .pause-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 12px rgba(138, 43, 226, 0.45);
+        }
+
+        .not-assigned-text {
+            color: #ff9e9e;
+            font-size: 0.55rem;
         }
 
         /* Responsive */
         @media (max-width: 768px) {
+            .top-nav {
+                padding: 10px 10px;
+            }
+
             .time-grid {
                 grid-template-columns: 1fr;
             }
 
+            .time-grid > .time-section:nth-child(3) {
+                grid-column: auto;
+            }
+
+            .time-grid > .time-section:nth-child(3) .user-list {
+                grid-template-columns: 1fr;
+            }
+
             .container {
-                padding: 100px 15px 30px 15px;
+                padding: 122px 0 30px 0;
             }
 
             .title {
@@ -492,9 +668,17 @@ $conn->close();
                 font-size: 0.6rem;
             }
 
+            .user-table th.rank-user-col,
+            .user-table td.rank-user-col-cell {
+                min-width: 320px;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
             .user-cell {
                 flex-direction: column;
                 text-align: center;
+                gap: 10px;
             }
 
             .user-cell img {
@@ -509,15 +693,21 @@ $conn->close();
     <div class="pixel-decoration bottom-left">■</div>
     <div class="pixel-decoration bottom-right">■</div>
 
+    <div class="top-nav">
+        <div class="brand">Club Cortefina | Panel Time</div>
+        <div class="nav-links">
+            <a href="index.php">Inicio</a>
+            <a href="perfil.php">Perfil</a>
+            <a href="time.php">Time</a>
+            <a href="admin.php">Admin</a>
+            <a href="logout.php">Cerrar</a>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1 class="title">Panel Time</h1>
             <p class="subtitle">Bienvenido, <?php echo htmlspecialchars($user['username']); ?> (Rango: <?php echo $user_rank_name; ?>)</p>
-            <a href="index.php" class="back-link">← Volver al Inicio</a>
-            <div class="time-buttons">
-                <button id="activate-time-btn">Activar Tiempo</button>
-                <button id="pause-time-btn">Pausa</button>
-            </div>
         </div>
 
         <div class="time-grid">
@@ -579,7 +769,7 @@ $conn->close();
         <table class="user-table">
             <thead>
                 <tr>
-                    <th>Usuario con Rango</th>
+                    <th class="rank-user-col">Usuario con Rango</th>
                     <th>Tiempo Total</th>
                     <th>Tiempo Actual</th>
                     <th>Acciones</th>
@@ -590,25 +780,54 @@ $conn->close();
                     <?php
                     $total_minutes = isset($usr['total_time']) ? $usr['total_time'] : 0;
                     $total_seconds = $total_minutes * 60;
-                    $today_minutes = 0; // Placeholder for today_time, assuming it's 0 since column doesn't exist
-                    $today_seconds = $today_minutes * 60;
+                    $active_session = isset($active_sessions_by_user[(int) $usr['id']]) ? $active_sessions_by_user[(int) $usr['id']] : null;
+                    $active_started_ts = ($active_session && !empty($active_session['started_at'])) ? strtotime($active_session['started_at']) : 0;
+                    $active_elapsed_seconds = $active_started_ts > 0 ? max(0, time() - $active_started_ts) : 0;
+                    $live_total_seconds = (int) $total_seconds + (int) $active_elapsed_seconds;
+
+                    $total_hours = intdiv((int) $live_total_seconds, 3600);
+                    $total_remaining_minutes = intdiv(((int) $live_total_seconds % 3600), 60);
+                    $today_hours = intdiv((int) $active_elapsed_seconds, 3600);
+                    $today_remaining_minutes = intdiv(((int) $active_elapsed_seconds % 3600), 60);
+
+                    $is_active_session = $active_started_ts > 0;
+                    $has_pending_activation = !empty($pending_activation_by_user[(int) $usr['id']]);
+                    $is_assigned_user = ((int) $user_rank >= 7) || ((int) $usr['encargado_admin_id'] === (int) $user['id']);
                     ?>
                     <tr class="user-row">
-                        <td class="user-cell">
+                        <td class="user-cell rank-user-col-cell">
                             <img src="https://www.habbo.es/habbo-imaging/avatarimage?user=<?php echo urlencode($usr['habbo_username']); ?>" alt="Foto de Perfil" style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #8a2be2; object-fit: cover;">
-                            <div style="display: flex; flex-direction: column; margin-left: 15px;">
-                                <span style="color: #ffd700; font-size: 0.8rem;"><?php echo htmlspecialchars($usr['username']); ?> (<?php echo $usr['verified'] ? 'Verificado' : 'No Verificado'; ?>) - Rango: <?php echo isset($rank_names[$usr['rank']]) ? $rank_names[$usr['rank']] : 'Usuario'; ?></span>
+                            <div style="display: flex; flex-direction: column;">
+                                <span class="user-name-line"><?php echo htmlspecialchars($usr['username']); ?> (<?php echo $usr['verified'] ? 'Verificado' : 'No Verificado'; ?>)</span>
+                                <span class="user-rank-line">Rango: <?php echo isset($rank_names[$usr['rank']]) ? $rank_names[$usr['rank']] : 'Usuario'; ?></span>
                             </div>
                         </td>
                         <td class="time-cell">
-                            <span id="time-<?php echo $usr['id']; ?>" style="color: #8a2be2; font-size: 0.6rem;"></span>
+                            <span
+                                id="time-<?php echo $usr['id']; ?>"
+                                data-base-seconds="<?php echo (int) $total_seconds; ?>"
+                                data-active-start="<?php echo $active_started_ts > 0 ? (int) $active_started_ts : ''; ?>"
+                                style="color: #8a2be2; font-size: 0.6rem;"
+                            >Horas: <?php echo $total_hours; ?> Minutos: <?php echo $total_remaining_minutes; ?></span>
                         </td>
                         <td class="time-cell">
-                            <span style="color: #8a2be2; font-size: 0.6rem;">Horas: 0 Minutos: 0 Segundos: 0</span>
+                            <span id="current-time-<?php echo $usr['id']; ?>" style="color: #8a2be2; font-size: 0.6rem;">Horas: <?php echo $today_hours; ?> Minutos: <?php echo $today_remaining_minutes; ?></span>
                         </td>
                         <td class="action-cell">
-                            <button class="activate-btn" data-user="<?php echo $usr['id']; ?>">Activar Tiempo</button>
-                            <button class="pause-btn" data-user="<?php echo $usr['id']; ?>">Pausa</button>
+                            <?php if ($is_assigned_user): ?>
+                                <?php if ($is_active_session): ?>
+                                    <button class="activate-btn" data-user="<?php echo $usr['id']; ?>" data-action="stop_active_time">Cerrar Tiempo</button>
+                                    <button class="pause-btn" data-user="<?php echo $usr['id']; ?>" data-action="stop_active_time">Pausa</button>
+                                <?php elseif ($has_pending_activation): ?>
+                                    <button class="activate-btn" data-user="<?php echo $usr['id']; ?>" data-action="request_activation" disabled>Solicitud enviada</button>
+                                    <button class="pause-btn" data-user="<?php echo $usr['id']; ?>" disabled>Pausa</button>
+                                <?php else: ?>
+                                    <button class="activate-btn" data-user="<?php echo $usr['id']; ?>" data-action="request_activation">Activar Tiempo</button>
+                                    <button class="pause-btn" data-user="<?php echo $usr['id']; ?>" disabled>Pausa</button>
+                                <?php endif; ?>
+                            <?php else: ?>
+                            <span class="not-assigned-text">No asignado</span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -617,129 +836,166 @@ $conn->close();
     </div>
 
     <script>
-        // Time display update
-        let userTimes = {};
-        let pausedUsers = new Set();
-        let isTimeActivated = false;
+        (function() {
+            const serverNow = <?php echo time(); ?>;
+            const nowOffset = serverNow - Math.floor(Date.now() / 1000);
 
-        // Initialize user times
-        <?php foreach ($all_registered_users as $usr): ?>
-            userTimes[<?php echo $usr['id']; ?>] = <?php echo isset($usr['total_time']) ? $usr['total_time'] * 60 : 0; ?>;
-        <?php endforeach; ?>
+            function nowSeconds() {
+                return Math.floor(Date.now() / 1000) + nowOffset;
+            }
 
-        function updateTimeDisplays() {
-            if (!isTimeActivated) return;
-            for (const userId in userTimes) {
-                if (!pausedUsers.has(userId)) {
-                    userTimes[userId]++;
-                    const totalSeconds = userTimes[userId];
-                    const hours = Math.floor(totalSeconds / 3600);
-                    const minutes = Math.floor((totalSeconds % 3600) / 60);
-                    const seconds = totalSeconds % 60;
-                    const timeSpan = document.getElementById('time-' + userId);
-                    if (timeSpan) {
-                        timeSpan.textContent = `Horas: ${hours} Minutos: ${minutes} Segundos: ${seconds}`;
+            function toInt(value, fallback) {
+                const parsed = parseInt(value, 10);
+                return Number.isFinite(parsed) ? parsed : fallback;
+            }
+
+            function formatTime(seconds) {
+                const safeSeconds = Math.max(0, seconds);
+                const hours = Math.floor(safeSeconds / 3600);
+                const minutes = Math.floor((safeSeconds % 3600) / 60);
+                return { hours, minutes };
+            }
+
+            function refreshRow(userId) {
+                const totalSpan = document.getElementById('time-' + userId);
+                const currentSpan = document.getElementById('current-time-' + userId);
+                if (!totalSpan || !currentSpan) {
+                    return;
+                }
+
+                const baseSeconds = toInt(totalSpan.dataset.baseSeconds, 0);
+                const activeStart = toInt(totalSpan.dataset.activeStart, 0);
+                const elapsedSeconds = activeStart > 0 ? Math.max(0, nowSeconds() - activeStart) : 0;
+                const totalLiveSeconds = baseSeconds + elapsedSeconds;
+
+                const totalParts = formatTime(totalLiveSeconds);
+                const currentParts = formatTime(elapsedSeconds);
+
+                totalSpan.textContent = 'Horas: ' + totalParts.hours + ' Minutos: ' + totalParts.minutes;
+                currentSpan.textContent = 'Horas: ' + currentParts.hours + ' Minutos: ' + currentParts.minutes;
+            }
+
+            function refreshAllRows() {
+                document.querySelectorAll('span[id^="time-"]').forEach((span) => {
+                    const userId = span.id.replace('time-', '');
+                    refreshRow(userId);
+                });
+            }
+
+            async function runAction(userId, action) {
+                const payload = new URLSearchParams({
+                    action: action,
+                    user_id: String(userId)
+                });
+
+                const response = await fetch('update_time.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: payload.toString(),
+                });
+
+                return response.json();
+            }
+
+            function setRowPending(userId) {
+                const activateBtn = document.querySelector('.activate-btn[data-user="' + userId + '"]');
+                const pauseBtn = document.querySelector('.pause-btn[data-user="' + userId + '"]');
+                if (activateBtn) {
+                    activateBtn.textContent = 'Solicitud enviada';
+                    activateBtn.disabled = true;
+                    activateBtn.dataset.action = 'request_activation';
+                }
+                if (pauseBtn) {
+                    pauseBtn.disabled = true;
+                }
+            }
+
+            function setRowStopped(userId, totalMinutes) {
+                const totalSpan = document.getElementById('time-' + userId);
+                if (totalSpan) {
+                    if (typeof totalMinutes === 'number') {
+                        totalSpan.dataset.baseSeconds = String(Math.max(0, totalMinutes * 60));
                     }
+                    totalSpan.dataset.activeStart = '';
                 }
-            }
-        }
 
-        setInterval(updateTimeDisplays, 1000);
-
-        // Header buttons functionality
-        document.getElementById('activate-time-btn').addEventListener('click', function() {
-            if (this.textContent === 'Activar Tiempo') {
-                this.textContent = 'Cerrar Tiempo';
-                isTimeActivated = true;
-                alert('Tiempo activado');
-            } else {
-                this.textContent = 'Activar Tiempo';
-                isTimeActivated = false;
-                alert('Tiempo cerrado');
-            }
-        });
-
-        document.getElementById('pause-time-btn').addEventListener('click', function() {
-            alert('Pausa activada');
-        });
-
-        let timers = {};
-
-        document.querySelectorAll('.activate-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const userId = this.getAttribute('data-user');
-                const timerDisplay = document.getElementById('timer-' + userId);
-
-                if (this.textContent === 'Activar Tiempo') {
-                    this.textContent = 'Cerrar Tiempo';
-                    startTimer(userId, timerDisplay);
-                    // Update total time after 1 hour
-                    setTimeout(() => {
-                        updateTotalTime(userId);
-                    }, 3600000); // 1 hour in milliseconds
-                } else {
-                    this.textContent = 'Activar Tiempo';
-                    stopTimer(userId);
+                const activateBtn = document.querySelector('.activate-btn[data-user="' + userId + '"]');
+                const pauseBtn = document.querySelector('.pause-btn[data-user="' + userId + '"]');
+                if (activateBtn) {
+                    activateBtn.textContent = 'Activar Tiempo';
+                    activateBtn.disabled = false;
+                    activateBtn.dataset.action = 'request_activation';
                 }
+                if (pauseBtn) {
+                    pauseBtn.disabled = true;
+                    pauseBtn.dataset.action = 'stop_active_time';
+                }
+
+                refreshRow(userId);
+            }
+
+            document.querySelectorAll('.activate-btn').forEach((button) => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) {
+                        return;
+                    }
+
+                    const userId = this.getAttribute('data-user');
+                    const action = this.getAttribute('data-action') || 'request_activation';
+                    if (!userId) {
+                        return;
+                    }
+
+                    try {
+                        const data = await runAction(userId, action);
+                        if (!data || !data.success) {
+                            alert((data && data.message) ? data.message : 'No se pudo procesar la accion.');
+                            return;
+                        }
+
+                        if (action === 'request_activation') {
+                            setRowPending(userId);
+                        } else if (action === 'stop_active_time') {
+                            setRowStopped(userId, typeof data.total_minutes === 'number' ? data.total_minutes : null);
+                        }
+                    } catch (error) {
+                        alert('No se pudo procesar la accion.');
+                        console.error(error);
+                    }
+                });
             });
-        });
 
-        document.querySelectorAll('.pause-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const userId = this.getAttribute('data-user');
-                pausedUsers.add(userId);
-                alert(`Pausa activada para usuario ${userId}`);
-                stopTimer(userId);
+            document.querySelectorAll('.pause-btn').forEach((button) => {
+                button.addEventListener('click', async function() {
+                    if (this.disabled) {
+                        return;
+                    }
+
+                    const userId = this.getAttribute('data-user');
+                    if (!userId) {
+                        return;
+                    }
+
+                    try {
+                        const data = await runAction(userId, 'stop_active_time');
+                        if (!data || !data.success) {
+                            alert((data && data.message) ? data.message : 'No se pudo pausar el time.');
+                            return;
+                        }
+
+                        setRowStopped(userId, typeof data.total_minutes === 'number' ? data.total_minutes : null);
+                    } catch (error) {
+                        alert('No se pudo pausar el time.');
+                        console.error(error);
+                    }
+                });
             });
-        });
 
-        function startTimer(userId, display) {
-            timers[userId] = { start: Date.now(), display: display };
-            updateDisplay(userId);
-        }
-
-        function stopTimer(userId) {
-            if (timers[userId]) {
-                delete timers[userId];
-                const display = document.getElementById('timer-' + userId);
-                display.textContent = '';
-            }
-        }
-
-        function updateDisplay(userId) {
-            if (timers[userId]) {
-                const elapsed = Date.now() - timers[userId].start;
-                const remaining = 3600000 - elapsed; // 1 hour
-                if (remaining > 0) {
-                    const minutes = Math.floor(remaining / 60000);
-                    const seconds = Math.floor((remaining % 60000) / 1000);
-                    timers[userId].display.textContent = `Tiempo restante: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    setTimeout(() => updateDisplay(userId), 1000);
-                } else {
-                    timers[userId].display.textContent = 'Tiempo completado';
-                    stopTimer(userId);
-                }
-            }
-        }
-
-        function updateTotalTime(userId) {
-            fetch('update_time.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'user_id=' + userId
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    console.log('Total time updated for user ' + userId);
-                } else {
-                    console.error('Failed to update total time');
-                }
-            })
-            .catch(error => console.error('Error:', error));
-        }
+            refreshAllRows();
+            setInterval(refreshAllRows, 1000);
+        })();
     </script>
 </body>
 </html>
